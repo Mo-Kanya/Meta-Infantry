@@ -39,7 +39,9 @@ public:
         PITCH = 1,
         BULLET = 2,
         PLATE = 3,
-        MOTOR_COUNT = 4
+        M_FW_LEFT = 4,
+        M_FW_RIGHT = 5,
+        MOTOR_COUNT = 6
     };
 };
 

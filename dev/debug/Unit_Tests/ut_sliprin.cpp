@@ -55,22 +55,15 @@ private:
         loaderv2i.change_parameters(SHOOT_PID_BULLET_LOADER_V2I_PARAMS);
 
         float loader_target_velocity = 0.0f;
+
         while (!shouldTerminate()) {
             if (remote_mode){
-                target_velocity = Remote::rc.ch0 * 3000;
+                target_velocity = Remote::rc.ch0 * 2500.0f;
             }
+            loader_target_velocity = Remote::rc.ch2 * 200.0f;
             ChassisIF::target_current[0] = (int) lv2i.calc(ChassisIF::feedback[ChassisIF::FR].actual_velocity,-target_velocity);
             ChassisIF::target_current[1] = (int) rv2i.calc(ChassisIF::feedback[ChassisIF::FL].actual_velocity,target_velocity);
-            if (!remote_mode) {
-                loader_target_velocity = loadera2v.calc(GimbalIF::feedback[2].accumulated_angle(),target_angle);
-            }
-            if(Remote::rc.s2 == Remote::S_UP) {
-                loader_target_velocity = loadera2v.calc(GimbalIF::feedback[2].accumulated_angle(),target_angle);
-            }
-            loader_target_velocity = 10.0f;
-            if(Remote::rc.s1 == Remote::S_UP) {
-                GimbalIF::target_current[2] = (int) loaderv2i.calc(GimbalIF::feedback[2].actual_velocity,loader_target_velocity);
-            }
+            GimbalIF::target_current[2] = (int) loaderv2i.calc(GimbalIF::feedback[GimbalIF::BULLET].actual_velocity,loader_target_velocity);
             ChassisIF::send_chassis_currents();
             GimbalIF::send_gimbal_currents();
             if (SYSTIME-time>1000) {
@@ -184,10 +177,9 @@ int main() {
     feedbackThread.start(NORMALPRIO+1);
     chThdSleepMilliseconds(10);
     ChassisIF::init(&can1);
+    chThdSleepMilliseconds(15);
     GimbalIF::init(&can1,233,233,GimbalIF::GM6020,GimbalIF::RM6623,GimbalIF::M2006);
     time_msecs_t t1 = SYSTIME;
-
-    Buzzer::play_sound(Buzzer::sound_kong_fu_FC,THREAD_BUZZER_PRIO);
 
     /**-----check can error------*/
     while (WITHIN_RECENT_TIME(t1, 100)) {
@@ -216,5 +208,6 @@ int main() {
     // priority to lowest before quitting, to let other threads run normally
     chibios_rt::BaseThread::setPriority(IDLEPRIO);
 #endif
+    Buzzer::play_sound(Buzzer::sound_kong_fu_FC,THREAD_BUZZER_PRIO);
     return 0;
 }

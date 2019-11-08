@@ -290,6 +290,7 @@ add_executable(ut_slip_rin
         dev/interface/chassis_interface.cpp
         dev/interface/gimbal_interface.cpp
         dev/interface/dms_interface.cpp
+        dev/interface/remote_interpreter.cpp
         dev/debug/Unit_Tests/ut_sliprin.cpp)
 
 # Remote Interpreter: include remote_interpreter sources and the unit test modules.

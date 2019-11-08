@@ -12,6 +12,7 @@
 #include "can_interface.h"
 #include "chassis_interface.h"
 #include "gimbal_interface.h"
+#include "remote_interpreter.h"
 
 using namespace chibios_rt;
 
@@ -36,6 +37,9 @@ CANInterface can1(&CAND1);
 float target_velocity = 0.0f;
 float target_angle = 0.0f;
 class CurrentSendThread : public chibios_rt::BaseStaticThread<512> {
+public:
+    bool remote_mode = true;
+private:
     void main() final {
         int time = SYSTIME;
         bool status = false;
@@ -52,15 +56,24 @@ class CurrentSendThread : public chibios_rt::BaseStaticThread<512> {
 
         float loader_target_velocity = 0.0f;
         while (!shouldTerminate()) {
+            if (remote_mode){
+                target_velocity = Remote::rc.ch0 * 3000;
+            }
             ChassisIF::target_current[0] = (int) lv2i.calc(ChassisIF::feedback[ChassisIF::FR].actual_velocity,-target_velocity);
             ChassisIF::target_current[1] = (int) rv2i.calc(ChassisIF::feedback[ChassisIF::FL].actual_velocity,target_velocity);
-
-            loader_target_velocity = loadera2v.calc(GimbalIF::feedback[2].accumulated_angle(),target_angle);
-            GimbalIF::target_current[2] = (int) loaderv2i.calc(GimbalIF::feedback[2].actual_velocity,loader_target_velocity);
-
+            if (!remote_mode) {
+                loader_target_velocity = loadera2v.calc(GimbalIF::feedback[2].accumulated_angle(),target_angle);
+            }
+            if(Remote::rc.s2 == Remote::S_UP) {
+                loader_target_velocity = loadera2v.calc(GimbalIF::feedback[2].accumulated_angle(),target_angle);
+            }
+            loader_target_velocity = 10.0f;
+            if(Remote::rc.s1 == Remote::S_UP) {
+                GimbalIF::target_current[2] = (int) loaderv2i.calc(GimbalIF::feedback[2].actual_velocity,loader_target_velocity);
+            }
             ChassisIF::send_chassis_currents();
             GimbalIF::send_gimbal_currents();
-            if (SYSTIME-time>750) {
+            if (SYSTIME-time>1000) {
                 if(!status) {
                     LED::led_on(5);
                     time = SYSTIME;
@@ -107,13 +120,29 @@ class FeedbackThread : public chibios_rt::BaseStaticThread<512> {
     }
 }feedbackThread;
 
+static void cmd_set_remote (BaseSequentialStream *chp, int argc, char *argv[]) {
+    (void) argv;
+    if (argc != 0) {
+        shellUsage(chp, "enable_remote");
+        return;
+    }
+    currentSendThread.remote_mode = true;
+}
+static void cmd_disable_remote (BaseSequentialStream *chp, int argc, char *argv[]) {
+    (void) argv;
+    if (argc != 0) {
+        shellUsage(chp, "enable_remote");
+        return;
+    }
+    currentSendThread.remote_mode = false;
+}
 static void cmd_set_velocity (BaseSequentialStream *chp, int argc, char *argv[]) {
     (void) argv;
     if (argc != 1) {
         shellUsage(chp, "set_velocity");
         return;
     }
-    target_velocity = Shell::atof(argv[0]);
+        target_velocity = Shell::atof(argv[0]);
 }
 static void cmd_clear (BaseSequentialStream *chp, int argc, char *argv[]) {
     (void) argv;
@@ -121,6 +150,7 @@ static void cmd_clear (BaseSequentialStream *chp, int argc, char *argv[]) {
         shellUsage(chp, "clear");
         return;
     }
+    currentSendThread.remote_mode = false;
     target_velocity = 0.0f;
 }
 static void cmd_shoot(BaseSequentialStream *chp, int argc, char *argv[]) {
@@ -132,9 +162,11 @@ static void cmd_shoot(BaseSequentialStream *chp, int argc, char *argv[]) {
     target_angle += (360.0f/8.0f);
 }
 ShellCommand ControllerCommands[] = {
-        {"set_velocity",   cmd_set_velocity},
-        {"clear"       ,   cmd_clear},
-        {"shoot"       ,   cmd_shoot},
+        {"enable_remote"  ,   cmd_set_remote},
+        {"disable_remote" ,   cmd_disable_remote},
+        {"set_velocity"   ,   cmd_set_velocity},
+        {"clear"          ,   cmd_clear},
+        {"shoot"          ,   cmd_shoot},
         {nullptr,         nullptr}
 };
 
@@ -146,7 +178,7 @@ int main() {
     Shell::addCommands(ControllerCommands);
     LED::all_off();
     can1.start(HIGHPRIO - 1);
-    Buzzer::play_sound(Buzzer::sound_da_bu_zi_duo_ge,THREAD_BUZZER_PRIO);
+    Remote::start();
     chThdSleepMilliseconds(5);
     chThdSleepMilliseconds(10);
     feedbackThread.start(NORMALPRIO+1);
@@ -154,6 +186,8 @@ int main() {
     ChassisIF::init(&can1);
     GimbalIF::init(&can1,233,233,GimbalIF::GM6020,GimbalIF::RM6623,GimbalIF::M2006);
     time_msecs_t t1 = SYSTIME;
+
+    Buzzer::play_sound(Buzzer::sound_kong_fu_FC,THREAD_BUZZER_PRIO);
 
     /**-----check can error------*/
     while (WITHIN_RECENT_TIME(t1, 100)) {

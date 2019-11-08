@@ -188,6 +188,15 @@ public:
             {Re2H, 400}, {Silent,  150}, {Re2H, 600}, {Silent, 600}, {Mi3H,600}, {Silent, 600},
             {Do1H, 1200}, {Silent, 150}
     };
+    static constexpr note_with_time_t sound_kong_fu_FC[] = {
+            {La6H, 150}, {Silent, 150}, {La6H, 100}, {Silent, 50}, {La6H, 100}, {Silent, 100},
+            {So5H, 150}, {Silent, 150}, {So5H, 150}, {Silent, 150},{Mi3H, 150}, {Silent, 150},
+            {Mi3H, 150}, {Silent, 150}, {Do1H, 300}, {Silent, 300},
+
+            {Re2H, 100}, {Silent,  50}, {Mi3H, 100}, {Silent,  50}, {Re2H, 100}, {Silent,  50},
+            {Do1H, 100}, {Silent,  100},{La6M, 150}, {Silent,  150},{Do1H, 150}, {Silent,  150},
+            {La6M, 300}, {Silent,  150},
+    };
     static constexpr note_with_time_t sound_little_star[] = {
             {Do1M, 150}, {Silent, 150}, {Do1M, 150}, {Silent, 150}, {So5M, 150}, {Silent, 150},
             {So5M, 150}, {Silent, 150}, {La6M, 150}, {Silent, 150}, {La6M, 150}, {Silent, 150},

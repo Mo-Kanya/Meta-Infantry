@@ -25,7 +25,7 @@ using namespace chibios_rt;
 
 CANInterface can1(&CAND1);
 
-#define CHASSIS_PID_V2I_KP 26.0f
+#define CHASSIS_PID_V2I_KP 45.0f
 #define CHASSIS_PID_V2I_KI 0.1f
 #define CHASSIS_PID_V2I_KD 0.02f
 #define CHASSIS_PID_V2I_I_LIMIT 2000.0f

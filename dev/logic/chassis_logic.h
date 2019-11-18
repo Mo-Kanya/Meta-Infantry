@@ -77,7 +77,7 @@ private:
     static float target_theta;
 
     static void apply_target();  // helper function to apply target values to ChassisSKD
-    static float dodge_mode_theta_;  // rotation angle (theta) in DODGE_MODE [degree]
+    static float dodge_mode_max_theta_;  // rotation angle (theta) in DODGE_MODE [degree]
     static float biased_angle_;    // gimbal angle in dodge mode set up for Hero
 
     static tprio_t dodge_thread_prio;

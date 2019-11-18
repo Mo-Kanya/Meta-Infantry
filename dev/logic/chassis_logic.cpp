@@ -13,14 +13,15 @@
 #include "chassis_logic.h"
 #include "chassis_scheduler.h"
 #include "remote_interpreter.h"
+#include <stdlib.h>
 
 ChassisLG::action_t ChassisLG::action = FORCED_RELAX_MODE;
 float ChassisLG::target_vx;
 float ChassisLG::target_vy;
 float ChassisLG::target_theta;
-
-float ChassisLG::dodge_mode_theta_ = 0;
 float ChassisLG::biased_angle_ = 0;
+
+float ChassisLG::dodge_mode_max_theta_ = 0;
 tprio_t ChassisLG::dodge_thread_prio;
 ChassisLG::DodgeModeSwitchThread ChassisLG::dodgeModeSwitchThread;
 chibios_rt::ThreadReference ChassisLG::dodgeThreadReference;
@@ -28,7 +29,7 @@ chibios_rt::ThreadReference ChassisLG::dodgeThreadReference;
 
 void ChassisLG::init(tprio_t dodge_thread_prio_, float dodge_mode_theta, float biased_angle) {
     dodge_thread_prio = dodge_thread_prio_;
-    dodge_mode_theta_ = dodge_mode_theta;
+    dodge_mode_max_theta_ = dodge_mode_theta;
     biased_angle_ = biased_angle;
     dodgeModeSwitchThread.started = true;
     dodgeThreadReference = dodgeModeSwitchThread.start(dodge_thread_prio);
@@ -52,7 +53,7 @@ void ChassisLG::set_action(ChassisLG::action_t value) {
     } else if (action == DODGE_MODE) {
         ChassisSKD::load_pid_params(CHASSIS_CLIP_PID_THETA2V_PARAMS, CHASSIS_CLIP_PID_V2I_PARAMS);
         ChassisSKD::set_mode(ChassisSKD::GIMBAL_COORDINATE_MODE);
-        target_theta = dodge_mode_theta_;
+        target_theta = dodge_mode_max_theta_;
         // Resume the thread
         chSysLock();  /// --- ENTER S-Locked state. DO NOT use LOG, printf, non S/I-Class functions or return ---
         if (!dodgeModeSwitchThread.started) {
@@ -69,7 +70,28 @@ void ChassisLG::set_target(float vx, float vy) {
     target_vx = vx;
     target_vy = vy;
     if (action == FOLLOW_MODE) {
-        target_theta = 0;
+
+        float actual_theta = GimbalIF::feedback[GimbalIF::YAW].accumulated_angle();
+
+        // Find the angle which is the closest to the actual angle, and is a total round.
+        if(actual_theta<0) {
+            if (  ((int)(-actual_theta)) % 360 > 180   ) {
+                int round = (int) (-actual_theta/360.0f);
+                target_theta = (round + 1) * (-360.0f);
+            } else if (  ((int)(-actual_theta)) % 360 <= 180   ) {
+                int round = (int) (-actual_theta/360.0f);
+                target_theta = (round) * (-360.0f);
+            }
+        } else if (actual_theta > 0) {
+            if (  ((int)(actual_theta)) % 360 > 180   ) {
+                int round = (int) (actual_theta/360.0f);
+                target_theta = (round + 1) * (360.0f);
+            } else if (  ((int)(actual_theta)) % 360 <= 180   ) {
+                int round = (int) (actual_theta/360.0f);
+                target_theta = (round) * (360.0f);
+            }
+        }
+
     }
 #if defined(HERO)
     if (action == DODGE_MODE) {
@@ -97,7 +119,14 @@ void ChassisLG::DodgeModeSwitchThread::main() {
         chSysUnlock();  /// --- EXIT S-Locked state ---
 
         if (!ABS_IN_RANGE(ChassisSKD::get_actual_theta() - (-target_theta), 10)) {
-            target_theta = -biased_angle_ - target_theta;
+
+            // Randomize the targt theta.
+            srand(SYSTIME);
+            float random_theta = (float)((rand() % (int)dodge_mode_max_theta_)) * (rand() % 3 - 1);
+
+            if (!ABS_IN_RANGE(target_theta-random_theta,30.0f)) {
+                target_theta = random_theta;
+            }
         }
         /**
          * If next target_theta is too close to current theta (may due to gimbal rotation), do not switch target to

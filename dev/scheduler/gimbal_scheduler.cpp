@@ -30,8 +30,6 @@ PIDController GimbalSKD::a2v_pid[2];
 PIDController GimbalSKD::v2i_pid[2];
 GimbalSKD::SKDThread GimbalSKD::skdThread;
 AbstractAHRS *GimbalSKD::gimbal_ahrs = nullptr;
-float GimbalSKD::yaw_restrict_angle[2] = {-MAXFLOAT, MAXFLOAT};
-float GimbalSKD::yaw_restrict_velocity = 0;
 
 void
 GimbalSKD::start(AbstractAHRS *gimbal_ahrs_, const Matrix33 ahrs_angle_rotation_, const Matrix33 ahrs_gyro_rotation_,
@@ -74,12 +72,6 @@ void GimbalSKD::load_pid_params(pid_params_t yaw_a2v_params, pid_params_t yaw_v2
 
     a2v_pid[PITCH].change_parameters(pitch_a2v_params);
     v2i_pid[PITCH].change_parameters(pitch_v2i_params);
-}
-
-void GimbalSKD::set_yaw_restriction(float yaw_min, float yaw_max, float restrict_velocity) {
-    yaw_restrict_angle[0] = yaw_min;
-    yaw_restrict_angle[1] = yaw_max;
-    yaw_restrict_velocity = restrict_velocity;
 }
 
 void GimbalSKD::set_mode(GimbalSKD::mode_t skd_mode) {
@@ -136,20 +128,8 @@ void GimbalSKD::SKDThread::main() {
 
             /// Yaw
             // Use AHRS angle and velocity
-
             target_velocity[YAW] = a2v_pid[YAW].calc(accumulated_angle[YAW], target_angle[YAW]);
             // Perform crop on physical relative angle of Yaw
-            if (GimbalIF::feedback[YAW].accumulated_angle() * yaw_install > yaw_restrict_angle[1] &&
-                target_velocity[YAW] > yaw_restrict_velocity) {
-
-                target_velocity[YAW] = yaw_restrict_velocity;
-
-            } else if (GimbalIF::feedback[YAW].accumulated_angle() * yaw_install < yaw_restrict_angle[0] &&
-                       target_velocity[YAW] < -yaw_restrict_velocity) {
-
-                target_velocity[YAW] = -yaw_restrict_velocity;
-
-            }
             target_current[YAW] = (int) v2i_pid[YAW].calc(velocity[YAW], target_velocity[YAW]);
 
 
